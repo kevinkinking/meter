@@ -179,8 +179,8 @@ int main(int argc, char** argv)
 
     readFileList(dir_path, img_names);
 
-    ini_model("../model/iou.txt", "../model/iou.bin", net_iou);
-    ini_model("../model/num.txt", "../model/num.bin", net_num);
+    ini_model("../model/iou.prototxt", "../model/iou.caffemodel", net_iou);
+    ini_model("../model/num.prototxt", "../model/num.caffemodel", net_num);
 
     vector<string>::iterator img_name_iter;
     for(img_name_iter = img_names.begin();img_name_iter!=img_names.end();img_name_iter++)
