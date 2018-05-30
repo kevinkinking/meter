@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+*.jpg
+*.png
+*.jpeg
+*.bin
+*.caffemodel
+cmake-build-debug
+.idea
