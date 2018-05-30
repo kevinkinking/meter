@@ -230,6 +230,7 @@ int main(int argc, char** argv)
             cout<<endl;
         }
         imshow("ssd",img);
+//        imwrite("a.jpg",img);
         int key = waitKey(0);
         if(key==27)
         {
