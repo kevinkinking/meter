@@ -4,8 +4,9 @@
 #include <opencv2/dnn/shape_utils.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
-#include "files.h"
+//#include "files.h"
 #include "utools.h"
+//#include <vector>
 
 using namespace cv;
 using namespace cv::dnn;
@@ -23,13 +24,28 @@ string class_names_number[12] = {"background",
 dnn::Net net_iou;
 dnn::Net net_num;
 
-bool ini_model(string txt_file, string bin_file, dnn::Net &net)
+bool ini_model_iou(string txt_file, string bin_file)
 {
-    net = readNetFromCaffe(txt_file, bin_file);
+    net_iou = readNetFromCaffe(txt_file, bin_file);
     cout<<"------use opencl-------"<<endl;
-    net.setPreferableTarget(DNN_TARGET_OPENCL);
+    net_iou.setPreferableTarget(DNN_TARGET_OPENCL);
 
-    if (net.empty())
+    if (net_iou.empty())
+    {
+        //这句话没有打印就代表模型初始化成功
+        cerr << "Can't load network by using the input files: " << endl;
+        exit(-1);//报错退出
+    }
+    return true;
+}
+
+bool ini_model_num(string txt_file, string bin_file)
+{
+    net_num = readNetFromCaffe(txt_file, bin_file);
+    cout<<"------use opencl-------"<<endl;
+    net_num.setPreferableTarget(DNN_TARGET_OPENCL);
+
+    if (net_num.empty())
     {
         //这句话没有打印就代表模型初始化成功
         cerr << "Can't load network by using the input files: " << endl;
@@ -172,71 +188,124 @@ void detect_img_number(cv::Mat frame,vector<cv::Rect> &rects,vector<int> &ids, d
     }
 }
 
-int main(int argc, char** argv)
+void get_number_from_img(cv::Mat img,vector<int> &numbers)
 {
-    vector<string> img_names;
-    string dir_path = "../img";
+    vector<cv::Rect> rects_iou;
+    vector<int> ids_iou;
+    detect_img_iou(img, rects_iou, ids_iou, net_iou);
 
-    readFileList(dir_path, img_names);
-
-    ini_model("../model/iou.prototxt", "../model/iou.caffemodel", net_iou);
-    ini_model("../model/num.prototxt", "../model/num.caffemodel", net_num);
-
-    vector<string>::iterator img_name_iter;
-    for(img_name_iter = img_names.begin();img_name_iter!=img_names.end();img_name_iter++)
+    for(int i=0;i<rects_iou.size();i++)
     {
-        string img_path =dir_path + "/" + *img_name_iter;
-        cout<<img_path<<endl;
-        cv::Mat img = imread(img_path);
+        Mat iou_img = img(rects_iou[i]);
 
-        vector<cv::Rect> rects_iou;
-        vector<int> ids_iou;
-
-        double time_b = getTickCount();
-        detect_img_iou(img, rects_iou, ids_iou, net_iou);
-        double time_e = getTickCount();
-        double freq = getTickFrequency() / 1000;
-
-        double time = (time_e - time_b) / freq;
-        cout << "Inference time, ms: " << time << endl;
-
-        for(int i=0;i<rects_iou.size();i++)
+        vector<cv::Rect> rects_num;
+        vector<int> ids_num;
+        detect_img_number(iou_img, rects_num, ids_num, net_num);
+        if(rects_num.size()>3)
         {
-            Mat iou_img = img(rects_iou[i]);
-            // imwrite(save_path,iou_img);
-
-            vector<cv::Rect> rects_num;
-            vector<int> ids_num;
-            double time_b = getTickCount();
-            detect_img_number(iou_img, rects_num, ids_num, net_num);
-            double time_e = getTickCount();
-            double freq = getTickFrequency() / 1000;
-
-            double time = (time_e - time_b) / freq;
-            cout << "Inference time1, ms: " << time << endl;
             vector<int> sorted_indexs;
-            rects_sort(rects_num,sorted_indexs);
-            for(int j = 0;j<sorted_indexs.size();j++)
-            {
+            rects_sort(rects_num, sorted_indexs);
+            for(int j = 0;j<sorted_indexs.size();j++) {
                 int index = sorted_indexs[j];
-                rectangle(iou_img,rects_num[index],Scalar(0,255,0));
                 if(ids_num[index] == 11)
                 {
                     continue;
                 }
-                cout<<class_names_number[ids_num[index]];
-                putText(img,class_names_number[ids_num[index]],Point(20 * j,50),2,1,Scalar(0,0,255));
+                string num_str = class_names_number[ids_num[index]];
+                int num_int = atoi(num_str.c_str());
+                numbers.push_back(num_int);
             }
-            cout<<endl;
-        }
-        imshow("ssd",img);
-//        imwrite("a.jpg",img);
-        int key = waitKey(0);
-        if(key==27)
-        {
             break;
         }
+        else
+        {
+            continue;
+        }
+    }
+}
+
+int main(int argc, char** argv)
+{
+    ini_model_iou("../model/iou.prototxt", "../model/iou.caffemodel");
+    ini_model_num("../model/num.prototxt", "../model/num.caffemodel");
+    string img_path = "../img/test.jpg";
+    cout<<img_path<<endl;
+    cv::Mat img = imread(img_path);
+    vector<int> numbers;
+    get_number_from_img(img, numbers);
+    vector<int>::iterator num_iter;
+    for(num_iter = numbers.begin();num_iter!=numbers.end();num_iter++)
+    {
+        cout<<*num_iter;
     }
 
     return 0;
 }
+
+//
+//int main(int argc, char** argv)
+//{
+//    vector<string> img_names;
+//    string dir_path = "../img";
+//
+//    readFileList(dir_path, img_names);
+//
+//    ini_model("../model/iou.prototxt", "../model/iou.caffemodel", net_iou);
+//    ini_model("../model/num.prototxt", "../model/num.caffemodel", net_num);
+//
+//    vector<string>::iterator img_name_iter;
+//    for(img_name_iter = img_names.begin();img_name_iter!=img_names.end();img_name_iter++)
+//    {
+//        string img_path =dir_path + "/" + *img_name_iter;
+//        cout<<img_path<<endl;
+//        cv::Mat img = imread(img_path);
+//
+//        vector<cv::Rect> rects_iou;
+//        vector<int> ids_iou;
+//
+//        double time_b = getTickCount();
+//        detect_img_iou(img, rects_iou, ids_iou, net_iou);
+//        double time_e = getTickCount();
+//        double freq = getTickFrequency() / 1000;
+//
+//        double time = (time_e - time_b) / freq;
+//        cout << "Inference time, ms: " << time << endl;
+//
+//        for(int i=0;i<rects_iou.size();i++)
+//        {
+//            Mat iou_img = img(rects_iou[i]);
+//
+//            vector<cv::Rect> rects_num;
+//            vector<int> ids_num;
+//
+//            detect_img_number(iou_img, rects_num, ids_num, net_num);
+//            double time_e = getTickCount();
+//            double freq = getTickFrequency() / 1000;
+//
+//            double time = (time_e - time_b) / freq;
+//            cout << "Inference time1, ms: " << time << endl;
+//            vector<int> sorted_indexs;
+//            rects_sort(rects_num,sorted_indexs);
+//            for(int j = 0;j<sorted_indexs.size();j++)
+//            {
+//                int index = sorted_indexs[j];
+//                rectangle(iou_img,rects_num[index],Scalar(0,255,0));
+//                if(ids_num[index] == 11)
+//                {
+//                    continue;
+//                }
+//                cout<<class_names_number[ids_num[index]];
+//                putText(img,class_names_number[ids_num[index]],Point(20 * j,50),2,1,Scalar(0,0,255));
+//            }
+//            cout<<endl;
+//        }
+//        imshow("ssd",img);
+//        int key = waitKey(0);
+//        if(key==27)
+//        {
+//            break;
+//        }
+//    }
+//
+//    return 0;
+//}

@@ -8,5 +8,6 @@
 * mkdir build
 * cmake ..
 * ./meter
+* 程序会识别目录img下的test.jpg
 # result
 * ![my](./result.jpg)
